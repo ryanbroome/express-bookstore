@@ -1,7 +1,13 @@
+// Book routes
+
 const express = require("express");
 const Book = require("../models/book");
 
+const jsonschema = require("jsonschema");
+const bookSchema = require("../schemas/bookSchema.json");
+
 const router = new express.Router();
+const ExpressError = require("../expressError");
 
 /** GET / => {books: [book, ...]}  */
 router.get("/", async function (req, res, next) {
@@ -26,8 +32,14 @@ router.get("/:id", async function (req, res, next) {
 /** POST /   bookData => {book: newBook}  */
 router.post("/", async function (req, res, next) {
   try {
+    const result = jsonschema.validate(req.body, bookSchema);
+    if (!result.valid) {
+      let listOfErrors = result.errors.map((e) => e.stack);
+      let error = new ExpressError(listOfErrors, 400);
+      return next(error);
+    }
     const book = await Book.create(req.body);
-    return res.json({ book });
+    return res.status(201).json({ book });
   } catch (e) {
     return next(e);
   }
@@ -36,6 +48,14 @@ router.post("/", async function (req, res, next) {
 /** PUT /[isbn]   bookData => {book: updatedBook}  */
 router.put("/:isbn", async function (req, res, next) {
   try {
+    const data = req.body;
+    data.isbn = req.params.isbn;
+    const result = jsonschema.validate(data, bookSchema);
+    if (!result.valid) {
+      let listOfErrors = result.errors.map((e) => e.stack);
+      let error = new ExpressError(listOfErrors, 400);
+      return next(error);
+    }
     const book = await Book.update(req.params.isbn, req.body);
     res.json({ book });
   } catch (e) {
